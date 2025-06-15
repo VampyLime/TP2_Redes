@@ -30,7 +30,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
     }
     buffer[bytes_read] = '\0'; // Garante terminação nula
 
-    // Usamos sscanf para extrair o método, o path e a versão HTTP
+    // Extração do método, o path e a versão HTTP
     if (sscanf(buffer, "%15s %255s %15s", method, path, http_version) != 3) {
         send_error_response(client_socket, 400, "Bad Request", "<h1>400 Bad Request</h1><p>Sua requisi&ccedil;&atilde;o est&aacute; malformada.</p>");
         status_code = 400;
@@ -40,7 +40,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
 
     printf("Requisição de %s: %s %s %s\n", client_ip, method, path, http_version);
 
-    // Apenas lidamos com requisições GET por enquanto
+    // Somente requisições GET implementadas
     if (strcmp(method, "GET") != 0) {
         send_error_response(client_socket, 501, "Not Implemented", "<h1>501 Not Implemented</h1><p>M&eacute;todo n&atilde;o suportado.</p>");
         status_code = 501;
@@ -48,7 +48,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
         return;
     }
 
-    // Construir o caminho completo do arquivo
+    // Constroi o caminho completo do arquivo
     if (strcmp(path, "/") == 0) {
         strcpy(full_path, ".");
         strcat(full_path, "/index.html");
@@ -57,7 +57,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
         strcat(full_path, path);
     }
 
-    // Verificar se o arquivo existe e é um arquivo regular
+    // Verifica se o arquivo existe e é um arquivo regular
     if (stat(full_path, &file_stat) == -1 || !S_ISREG(file_stat.st_mode)) {
         send_error_response(client_socket, 404, "Not Found", "<h1>404 Not Found</h1><p>O recurso solicitado n&atilde;o foi encontrado.</p>");
         status_code = 404;
@@ -65,7 +65,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
         return;
     }
 
-    // Abrir o arquivo em modo binário
+    // Abri o arquivo em modo binário
     file = fopen(full_path, "rb");
     if (!file) {
         send_error_response(client_socket, 500, "Internal Server Error", "<h1>500 Internal Server Error</h1><p>N&atilde;o foi poss&iacute;vel abrir o arquivo.</p>");
@@ -74,7 +74,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
         return;
     }
 
-    // Construir cabeçalhos da resposta HTTP 200 OK
+    // Constroi cabeçalhos da resposta HTTP 200 OK
     const char *mime_type = get_mime_type(full_path);
     snprintf(response_header, BUFFER_SIZE,
              "HTTP/1.1 200 OK\r\n"
@@ -84,10 +84,10 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
              "\r\n",
              mime_type, (long)file_stat.st_size);
 
-    // Enviar cabeçalhos
+    // Envia cabeçalhos
     write(client_socket, response_header, strlen(response_header));
 
-    // Enviar conteúdo do arquivo
+    // Envia conteúdo do arquivo
     int bytes_sent;
     while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0) {
         bytes_sent = write(client_socket, buffer, bytes_read);
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in client_address;
     socklen_t client_addrlen = sizeof(client_address);
 
-    // 1. Criar o socket do servidor
+    // 1. Cria o socket do servidor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         die("socket failed");
     }
@@ -125,12 +125,12 @@ int main(int argc, char *argv[]) {
     address.sin_addr.s_addr = INADDR_ANY; // Aceita conexões de qualquer IP
     address.sin_port = htons(port);
 
-    // 2. Vincular o socket à porta
+    // 2. Vincula o socket à porta
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         die("bind failed");
     }
 
-    // 3. Escutar por conexões
+    // 3. Escuta por conexões
     if (listen(server_fd, 10) < 0) {
         die("listen failed");
     }

@@ -79,7 +79,6 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // Se algo aconteceu no socket mestre, é uma nova conexão
         if (FD_ISSET(master_socket, &readfds)) {
             if ((new_socket = accept(master_socket, (struct sockaddr *)&client_addresses[0], &client_addrlen)) < 0) {
                 perror("accept failed");
