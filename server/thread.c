@@ -1,6 +1,5 @@
-#include "http_utils.h" // Inclui as funções e definições comuns
-
-#include <pthread.h> // Necessário para threads POSIX
+#include "http_utils.h" 
+#include <pthread.h> 
 
 #define NUM_THREADS 4
 #define QUEUE_SIZE 100
@@ -12,7 +11,7 @@ typedef struct {
 } Task;
 
 // --- Fila de Tarefas ---
-Task task_queue[QUEUE_SIZE]; // Fila de tarefas agora armazena a estrutura Task
+Task task_queue[QUEUE_SIZE];
 int queue_count = 0;
 int queue_head = 0;
 int queue_tail = 0;
@@ -26,7 +25,7 @@ void enqueue_task(int client_socket, struct sockaddr_in client_address) {
         task_queue[queue_tail].client_address = client_address;
         queue_tail = (queue_tail + 1) % QUEUE_SIZE;
         queue_count++;
-        pthread_cond_signal(&queue_cond); // Sinaliza para uma thread trabalhadora
+        pthread_cond_signal(&queue_cond);
     } else {
         printf("Fila de tarefas cheia. Descartando conexão de %s.\n", inet_ntoa(client_address.sin_addr));
         close(client_socket);
@@ -36,10 +35,9 @@ void enqueue_task(int client_socket, struct sockaddr_in client_address) {
 
 Task dequeue_task() {
     Task task;
-    task.client_socket = -1; // Valor de erro
+    task.client_socket = -1; 
     pthread_mutex_lock(&queue_mutex);
     while (queue_count == 0) {
-        // Fila vazia, espera por um sinal
         pthread_cond_wait(&queue_cond, &queue_mutex);
     }
     task = task_queue[queue_head];
@@ -50,7 +48,6 @@ Task dequeue_task() {
 }
 
 // --- Funções de Conexão e Thread ---
-// Esta função é agora a mesma que em iterativo.c e fork.c, mas com logs de thread ID.
 void handle_connection(int client_socket, struct sockaddr_in *client_address) {
     char buffer[BUFFER_SIZE] = {0};
     char method[16], path[256], http_version[16];
@@ -59,7 +56,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
     struct stat file_stat;
     int bytes_read;
     char response_header[BUFFER_SIZE];
-    int status_code = 200; // Default OK
+    int status_code = 200;
 
     // Obter IP do cliente para o log
     char client_ip[INET_ADDRSTRLEN];
@@ -81,7 +78,6 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
     }
     buffer[bytes_read] = '\0'; // Garante terminação nula
 
-    // Parsear a linha de requisição (ex: GET /index.html HTTP/1.1)
     if (sscanf(buffer, "%15s %255s %15s", method, path, http_version) != 3) {
         send_error_response(client_socket, 400, "Bad Request", "<h1>400 Bad Request</h1><p>Sua requisi&ccedil;&atilde;o est&aacute; malformada.</p>");
         status_code = 400;
@@ -135,7 +131,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
              "HTTP/1.1 200 OK\r\n"
              "Content-Type: %s\r\n"
              "Content-Length: %ld\r\n"
-             "Connection: close\r\n" // Fechar a conexão após a resposta
+             "Connection: close\r\n"
              "\r\n",
              mime_type, (long)file_stat.st_size);
 
@@ -163,7 +159,6 @@ void* worker_thread() {
     while (1) {
         Task task = dequeue_task();
         if (task.client_socket != -1) {
-            // Passa o socket e o endereço do cliente para handle_connection
             handle_connection(task.client_socket, &task.client_address);
         }
     }
@@ -179,8 +174,8 @@ int main(int argc, char *argv[]) {
     int port = atoi(argv[1]);
     int server_fd, client_socket;
     struct sockaddr_in address;
-    struct sockaddr_in client_address; // Para armazenar o endereço do cliente
-    socklen_t client_addrlen = sizeof(client_address); // Para accept()
+    struct sockaddr_in client_address;
+    socklen_t client_addrlen = sizeof(client_address);
 
     // Criação do pool de threads
     pthread_t threads[NUM_THREADS];
@@ -194,12 +189,6 @@ int main(int argc, char *argv[]) {
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         die("socket failed");
     }
-
-    // Opcional: Reusar endereço e porta imediatamente após fechar
-    // int opt = 1;
-    // if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-    //     die("setsockopt failed");
-    // }
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -221,13 +210,12 @@ int main(int argc, char *argv[]) {
     // Thread principal (produtor)
     while (1) {
         printf("Aguardando nova conexão...\n");
-        // accept agora preenche client_address
         if ((client_socket = accept(server_fd, (struct sockaddr *)&client_address, &client_addrlen)) < 0) {
             perror("accept failed");
             continue;
         }
         printf("Conexão aceita de %s:%d! Enfileirando tarefa...\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
-        enqueue_task(client_socket, client_address); // Enfileira o socket e o endereço
+        enqueue_task(client_socket, client_address);
     }
 
     close(server_fd);

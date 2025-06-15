@@ -8,7 +8,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
     struct stat file_stat;
     int bytes_read;
     char response_header[BUFFER_SIZE];
-    int status_code = 200; // Default OK
+    int status_code = 200;
 
     // Obter IP do cliente para o log
     char client_ip[INET_ADDRSTRLEN];
@@ -30,7 +30,6 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
     }
     buffer[bytes_read] = '\0'; // Garante terminação nula
 
-    // Parsear a linha de requisição (ex: GET /index.html HTTP/1.1)
     // Usamos sscanf para extrair o método, o path e a versão HTTP
     if (sscanf(buffer, "%15s %255s %15s", method, path, http_version) != 3) {
         send_error_response(client_socket, 400, "Bad Request", "<h1>400 Bad Request</h1><p>Sua requisi&ccedil;&atilde;o est&aacute; malformada.</p>");
@@ -50,10 +49,9 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
     }
 
     // Construir o caminho completo do arquivo
-    // Se o path for "/", servir index.html
     if (strcmp(path, "/") == 0) {
-        strcpy(full_path, "."); // Servir da raiz do diretório do servidor
-        strcat(full_path, "/index.html"); // Padrão
+        strcpy(full_path, ".");
+        strcat(full_path, "/index.html");
     } else {
         strcpy(full_path, ".");
         strcat(full_path, path);
@@ -82,7 +80,7 @@ void handle_connection(int client_socket, struct sockaddr_in *client_address) {
              "HTTP/1.1 200 OK\r\n"
              "Content-Type: %s\r\n"
              "Content-Length: %ld\r\n"
-             "Connection: close\r\n" // Fechar a conexão após a resposta (servidor iterativo)
+             "Connection: close\r\n"
              "\r\n",
              mime_type, (long)file_stat.st_size);
 
@@ -115,19 +113,13 @@ int main(int argc, char *argv[]) {
     int port = atoi(argv[1]);
     int server_fd, client_socket;
     struct sockaddr_in address;
-    struct sockaddr_in client_address; // Para armazenar o endereço do cliente
-    socklen_t client_addrlen = sizeof(client_address); // Para accept()
+    struct sockaddr_in client_address;
+    socklen_t client_addrlen = sizeof(client_address);
 
     // 1. Criar o socket do servidor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         die("socket failed");
     }
-
-    // Opcional: Reusar endereço e porta imediatamente após fechar
-    // int opt = 1;
-    // if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-    //     die("setsockopt failed");
-    // }
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY; // Aceita conexões de qualquer IP
@@ -139,7 +131,7 @@ int main(int argc, char *argv[]) {
     }
 
     // 3. Escutar por conexões
-    if (listen(server_fd, 10) < 0) { // Aumentei o backlog de listen
+    if (listen(server_fd, 10) < 0) {
         die("listen failed");
     }
 
@@ -149,14 +141,13 @@ int main(int argc, char *argv[]) {
     // 4. Loop principal para aceitar e tratar conexões
     while (1) {
         printf("Aguardando nova conexão...\n");
-        // accept agora preenche client_address
         if ((client_socket = accept(server_fd, (struct sockaddr *)&client_address, &client_addrlen)) < 0) {
-            perror("accept failed"); // Usar perror para erros de accept
-            continue; // Continua para a próxima iteração
+            perror("accept failed");
+            continue;
         }
 
         printf("Conexão aceita de %s:%d!\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
-        handle_connection(client_socket, &client_address); // Passa o endereço do cliente
+        handle_connection(client_socket, &client_address);
     }
 
     close(server_fd);

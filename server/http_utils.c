@@ -1,4 +1,4 @@
-#include "http_utils.h" // Inclui o cabeçalho que acabamos de criar
+#include "http_utils.h"
 
 // Função para tratamento de erros
 void die(const char *msg) {
@@ -9,7 +9,7 @@ void die(const char *msg) {
 // Função para obter o tipo MIME com base na extensão do arquivo
 const char *get_mime_type(const char *file_name) {
     const char *dot = strrchr(file_name, '.');
-    if (!dot || dot == file_name) return "application/octet-stream"; // Nenhum tipo, ou nome começa com .
+    if (!dot || dot == file_name) return "application/octet-stream";
 
     if (strcmp(dot, ".html") == 0 || strcmp(dot, ".htm") == 0) return "text/html";
     if (strcmp(dot, ".css") == 0) return "text/css";
@@ -20,8 +20,7 @@ const char *get_mime_type(const char *file_name) {
     if (strcmp(dot, ".png") == 0) return "image/png";
     if (strcmp(dot, ".gif") == 0) return "image/gif";
     if (strcmp(dot, ".pdf") == 0) return "application/pdf";
-    // Adicione mais tipos MIME conforme necessário
-    return "application/octet-stream"; // Tipo padrão para desconhecidos
+    return "application/octet-stream";
 }
 
 // Função para enviar uma resposta de erro HTTP
@@ -45,8 +44,4 @@ void send_error_response(int client_socket, int status_code, const char *status_
 // Função para logar as requisições
 void log_request(const char *client_ip, const char *timestamp, const char *method, const char *path, int status_code) {
     printf("[%s] %s %s \"%s %s\" %d\n", timestamp, client_ip, method, path, "HTTP/1.1", status_code);
-    // Para logar em arquivo, você pode abrir um arquivo aqui e escrever nele.
-    // Ex: FILE *log_file = fopen("server.log", "a");
-    //     fprintf(log_file, "[%s] %s %s \"%s %s\" %d\n", timestamp, client_ip, method, path, "HTTP/1.1", status_code);
-    //     fclose(log_file);
 }

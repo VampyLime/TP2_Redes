@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     }
     printf("Conectado ao servidor.\n");
 
-    // Construir a requisição HTTP GET
+    // Constrói a requisição HTTP GET
     char http_request[512];
     snprintf(http_request, sizeof(http_request),
              "GET %s HTTP/1.1\r\n"
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
              "\r\n",
              request_path, host, port);
 
-    // Enviar a requisição HTTP
+    // Envia a requisição HTTP
     printf("Enviando requisição:\n%s\n", http_request);
     if (send(sockfd, http_request, strlen(http_request), 0) < 0) {
         perror("Erro ao enviar requisição");

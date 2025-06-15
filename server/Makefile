@@ -16,7 +16,7 @@ ALL_EXES = $(SERVER_EXES)
 
 .PHONY: all clean
 
-# Regra padrão: constrói todos os executáveis
+#Constrói todos os executáveis
 all: $(ALL_EXES)
 
 # Regras para os executáveis dos servidores

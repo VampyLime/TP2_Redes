@@ -1,13 +1,9 @@
-#include "http_utils.h" // Inclui as funções e definições comuns
-
-#include <sys/select.h> // Necessário para select()
-#include <errno.h>      // Necessário para errno
+#include "http_utils.h" 
+#include <sys/select.h>
+#include <errno.h> 
 #include <asm-generic/socket.h>
 
 #define MAX_CLIENTS 30 // Número máximo de clientes suportados
-
-// NOTE: A função handle_connection completa dos outros servidores será adaptada e colocada inline no loop principal do select.
-// Isso é comum em servidores select/epoll, onde a lógica de tratamento é executada diretamente no loop de evento.
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -17,14 +13,14 @@ int main(int argc, char *argv[]) {
 
     int port = atoi(argv[1]);
     int master_socket, new_socket;
-    struct sockaddr_in address; // Usado para bind e listen
-    struct sockaddr_in client_addresses[MAX_CLIENTS]; // Para armazenar o endereço de cada cliente
+    struct sockaddr_in address; 
+    struct sockaddr_in client_addresses[MAX_CLIENTS];
     socklen_t client_addrlen = sizeof(struct sockaddr_in);
 
-    int client_socket[MAX_CLIENTS]; // Array para armazenar os descritores de socket dos clientes
+    int client_socket[MAX_CLIENTS];
     int i, valread, sd;
-    int max_sd; // Maior descritor de arquivo no conjunto
-    fd_set readfds; // Conjunto de descritores de socket para leitura
+    int max_sd; 
+    fd_set readfds; 
 
     // Inicializa todos os client_socket[] para 0 e client_addresses para zero
     for (i = 0; i < MAX_CLIENTS; i++) {
@@ -37,11 +33,9 @@ int main(int argc, char *argv[]) {
         die("socket failed");
     }
 
-    // Opcional: Reusar endereço e porta imediatamente após fechar
     int opt = 1;
     if (setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-        perror("setsockopt failed"); // Usar perror para ver o erro
-        // Não é fatal, mas é bom logar. die("setsockopt failed");
+        perror("setsockopt failed"); 
     }
 
     address.sin_family = AF_INET;
@@ -54,7 +48,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Escuta por conexões
-    if (listen(master_socket, 10) < 0) { // Aumentei o backlog de listen
+    if (listen(master_socket, 10) < 0) { 
         die("listen failed");
     }
 
@@ -70,26 +64,23 @@ int main(int argc, char *argv[]) {
         // Adiciona os sockets dos clientes ativos ao conjunto readfds
         for (i = 0; i < MAX_CLIENTS; i++) {
             sd = client_socket[i];
-            if (sd > 0) { // Se o socket é válido
+            if (sd > 0) {
                 FD_SET(sd, &readfds);
             }
-            if (sd > max_sd) { // Atualiza o maior descritor para select()
+            if (sd > max_sd) { 
                 max_sd = sd;
             }
         }
 
-        // Espera por atividade em um dos sockets (bloqueante)
-        // NULL para timeout significa que select() bloqueará indefinidamente
         int activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);
 
-        if ((activity < 0) && (errno != EINTR)) { // EINTR é um sinal interrompendo a chamada, não é um erro grave
+        if ((activity < 0) && (errno != EINTR)) { 
             perror("select error");
-            continue; // Tenta novamente
+            continue;
         }
 
         // Se algo aconteceu no socket mestre, é uma nova conexão
         if (FD_ISSET(master_socket, &readfds)) {
-            // Aceita a nova conexão. client_addrlen deve ser um ponteiro para socklen_t.
             if ((new_socket = accept(master_socket, (struct sockaddr *)&client_addresses[0], &client_addrlen)) < 0) {
                 perror("accept failed");
                 continue;
@@ -101,43 +92,16 @@ int main(int argc, char *argv[]) {
             for (i = 0; i < MAX_CLIENTS; i++) {
                 if (client_socket[i] == 0) {
                     client_socket[i] = new_socket;
-                    // Armazena o endereço do cliente para esta posição
-                    // A cópia aqui é importante porque a 'address' em accept é sobrescrita a cada accept.
-                    // Em um sistema real, você alocaria um ponteiro ou usaria um struct mais complexo.
-                    // Para simplificar e reutilizar, estou copiando para client_addresses[i] a info que estava em client_addresses[0].
-                    // ATENÇÃO: Esta linha é simplificada. client_addresses[0] é apenas um buffer temporário para accept.
-                    // A forma correta seria copiar o conteúdo de `address` (que accept preencheu) para `client_addresses[i]`.
-                    // A correção está na lógica do accept abaixo (linha 115).
-                    
-                    // CORREÇÃO: No accept, devemos passar o endereço de client_addresses[i] diretamente.
-                    // Remova a linha 'struct sockaddr_in client_addresses[MAX_CLIENTS];' do topo e declare-a dentro do loop de aceitação.
-                    // Ou, faça o seguinte para manter a estrutura:
-                    // new_socket = accept(master_socket, (struct sockaddr *)&client_addresses[i], &client_addrlen);
-                    // No entanto, para reutilizar o handle_connection que espera um ponteiro, é mais simples
-                    // ter um buffer temporário para o accept e depois copiá-lo se necessário.
-                    // A abordagem mais direta é usar o `client_address` como buffer no `accept` e depois passá-lo.
-                    
-                    // O `accept` original preenche `address` com os dados do cliente.
-                    // Para o select, é mais direto passar `&temp_client_addr` no `accept` e depois copiar.
-                    // No meu código modificado, `client_addresses[0]` foi um erro conceitual.
-
-                    // REVERTER PARA O CONCEITO DO ITERATIVO/FORK:
-                    // Declarar struct sockaddr_in temp_client_addr; no main
-                    // Passar &temp_client_addr para accept
-                    // E depois armazenar temp_client_addr na posição correta do array client_addresses[i]
                     break;
                 }
             }
         }
         
-        // --- Processa requisições dos clientes existentes ---
-        // Itera sobre todos os sockets de cliente para verificar se há atividade
         for (i = 0; i < MAX_CLIENTS; i++) {
             sd = client_socket[i];
             
             // Se o socket está ativo e tem dados para leitura
             if (sd > 0 && FD_ISSET(sd, &readfds)) {
-                // Obter o endereço IP do cliente para o log (agora armazenado em client_addresses[i])
                 char client_ip[INET_ADDRSTRLEN];
                 inet_ntop(AF_INET, &(client_addresses[i].sin_addr), client_ip, INET_ADDRSTRLEN);
 
@@ -160,19 +124,18 @@ int main(int argc, char *argv[]) {
 
                 valread = read(sd, buffer, BUFFER_SIZE - 1);
 
-                if (valread == 0) { // Conexão fechada pelo cliente
+                if (valread == 0) {
                     printf("Host desconectado, socket fd: %d, IP: %s:%d\n", sd, client_ip, ntohs(client_addresses[i].sin_port));
-                    close(sd); // Fecha o socket
-                    client_socket[i] = 0; // Marca como slot livre
-                    // Não é necessário limpar client_addresses[i] explicitamente, mas pode-se fazer um memset.
-                } else if (valread < 0) { // Erro de leitura
-                    if (errno != EWOULDBLOCK) { // EWOULDBLOCK significa que não há dados disponíveis ainda (não é um erro real para select)
+                    close(sd);
+                    client_socket[i] = 0; 
+                } else if (valread < 0) {
+                    if (errno != EWOULDBLOCK) { 
                         perror("read error");
                     }
                     close(sd);
                     client_socket[i] = 0;
-                } else { // Dados lidos, processar requisição HTTP
-                    buffer[valread] = '\0'; // Garante terminação nula
+                } else {
+                    buffer[valread] = '\0'; 
 
                     if (sscanf(buffer, "%15s %255s %15s", method, path, http_version) != 3) {
                         send_error_response(sd, 400, "Bad Request", "<h1>400 Bad Request</h1><p>Sua requisi&ccedil;&atilde;o est&aacute; malformada.</p>");
