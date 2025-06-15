@@ -3,7 +3,7 @@
 #include <errno.h> 
 #include <asm-generic/socket.h>
 
-#define MAX_CLIENTS 30 // Número máximo de clientes suportados
+#define MAX_CLIENTS 150 // Número máximo de clientes suportados
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
